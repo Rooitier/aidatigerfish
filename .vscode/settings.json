@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.spec": "cpp",
+        "aida_ana_fwd.C": "cpp",
+        "run_aida_ana.C": "cpp",
+        "aida_ana.C": "cpp"
+    }
+}
