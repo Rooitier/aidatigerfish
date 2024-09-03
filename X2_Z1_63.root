@@ -1,0 +1,22 @@
+{
+//========= Macro generated from object: CUTG/Graph
+//========= by ROOT version6.26/10
+   
+   cutg = new TCutG("CUTG",11);
+   cutg->SetVarX("FRS X2 vs Z1");
+   cutg->SetVarY("");
+   cutg->SetTitle("Graph");
+   cutg->SetFillStyle(1000);
+   cutg->SetPoint(0,63.0926,-77.2727);
+   cutg->SetPoint(1,63.0436,-60.5372);
+   cutg->SetPoint(2,63.2123,-35.3306);
+   cutg->SetPoint(3,63.2668,-11.5702);
+   cutg->SetPoint(4,63.3158,9.50413);
+   cutg->SetPoint(5,63.7404,9.09091);
+   cutg->SetPoint(6,63.784,-7.64463);
+   cutg->SetPoint(7,63.8275,-61.3636);
+   cutg->SetPoint(8,63.8003,-79.7521);
+   cutg->SetPoint(9,63.3702,-82.6446);
+   cutg->SetPoint(10,63.0926,-77.2727);
+   cutg->Draw("");
+}
