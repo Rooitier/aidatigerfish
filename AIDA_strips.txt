@@ -1,0 +1,46 @@
+# AIDA Strip Masking/Threshold Configuration
+
+# Format
+# DSSD X/Y Strip Energy (-1 = Ignore this strip)
+# Any strip not defined will use the hardware threshold only
+
+# Examples:
+
+# Remove strip 0 from DSSD 1 on the X size
+# 1 X 0 -1
+
+# Use a software threshold of 150 keV for DSSD 2 Y Strip 37
+# 2 Y 37 150
+
+# Broken strips S100 but could also be fixed with an appropriate threshold
+
+1 X 1 -1
+1 X 64 -1
+1 X 71 -1
+1 X 129 -1
+1 X 131 -1
+1 X 183 -1
+1 X 187 -1
+1 X 189 -1
+1 X 190 -1
+1 X 192 -1
+1 X 193 -1
+1 X 195 -1
+1 X 256 -1
+1 X 257 -1
+1 X 320 -1
+1 X 321 -1
+1 X 323 -1
+1 X 373 -1
+1 X 377 -1
+1 X 378 -1
+1 X 381 -1
+1 X 384 -1
+1 Y 117 -1
+1 Y 118 -1
+1 Y 119 -1
+1 Y 108 -1
+1 Y 110 -1
+1 Y 113 -1
+1 Y 114 -1
+1 Y 126 -1

@@ -37,6 +37,10 @@ TH2F* aida2_implants_strip_xy;
 TH1F* sc41_hits;
 
 //Decays
+
+TH2F* aida_decays_strip_xy;
+TH2F* aida2_decays_strip_xy;
+
 TH2F* aida_decays_strip_xy_onspill;
 TH2F* aida2_decays_strip_xy_onspill;
 
@@ -107,6 +111,9 @@ TFile *cut_file3 = new TFile("/u/jbormans/S100/analysis/aidatigerfish/162Eu_AoQ.
 
 TCutG *cut163Eu = (TCutG*)cut_file3->Get("CUTG");
 
+std::vector<int> broken_xstrips;
+std::vector<int> broken_ystrips;
+
 
 void aida_ana::Begin(TTree * /*tree*/)
 {
@@ -125,6 +132,34 @@ void aida_ana::SlaveBegin(TTree * /*tree*/)
 
    TString option = GetOption();
 
+   // Read in AIDA strips thresholds from AIDA_strips.txt file
+
+   std::ifstream aida_strips_file("/u/jbormans/S100/analysis/aidatigerfish/AIDA_strips.txt");
+
+   int dssd_number;
+   std::string xy;
+   int strip_number;
+   int threshold;
+
+   std::string line;
+
+   while(std::getline(aida_strips_file, line))
+   {
+      if(line[0] == '#') continue;
+
+      std::istringstream iss(line);
+      iss >> dssd_number >> xy >> strip_number >> threshold;
+      
+      // If the threshold is -1, add the strip to the list of strips to skip
+      if (threshold == -1) {
+         if (xy == "X") {
+            broken_xstrips.push_back(strip_number);
+         } else if (xy == "Y") {
+            broken_ystrips.push_back(strip_number);
+         }
+      }
+   }
+
    //Implants
    aida_implants_strip_xy = new TH2F("aida_implants_xy", "AIDA Implants XY DSSSD 1", 386, 0, 386, 128, 0, 128);
    aida2_implants_strip_xy = new TH2F("aida2_implants_xy", "AIDA Implants XY DSSSD 2", 386, 0, 386, 128, 0, 128);
@@ -133,6 +168,10 @@ void aida_ana::SlaveBegin(TTree * /*tree*/)
 
 
    // Decays
+
+   aida_decays_strip_xy = new TH2F("aida_decays_strip_xy", "AIDA Decays XY", 386, 0, 386, 128, 0, 128);
+   aida2_decays_strip_xy = new TH2F("aida2_decays_strip_xy", "AIDA2 Decays XY", 386, 0, 386, 128, 0, 128);
+
    aida_decays_xy = new TH2F("aida_decays_xy", "AIDA Decays XY", 386, 0, 386, 128, 0, 128);
    aida_decays_strip_xy_onspill = new TH2F("aida_decays_xy_onspill", "AIDA Decays XY DSSSD 1 Onspill", 386, 0, 386, 128, 0, 128);
    // aida2_decays_strip_xy_onspill = new TH2F("aida2_decays_xy_onspill", "AIDA Decays XY DSSSD 2 Onspill", 386, 0, 386, 128, 0, 128);
@@ -226,7 +265,7 @@ Bool_t aida_ana::Process(Long64_t entry)
    // Implanted ion map
    for (int i =0; i < frshits; i++)
    {
-      if(cutg2->IsInside(FrsHitData_fID_z.At(i), FrsHitData_fID_x2.At(i)) && cut163Eu->IsInside(FrsHitData_fID_AoQ_corr.At(i), FrsHitData_fID_z.At(i))) // currently set for 162Eu
+      if(cutg->IsInside(FrsHitData_fID_z.At(i), FrsHitData_fID_x2.At(i)) && cutg1->IsInside(FrsHitData_fID_AoQ_corr.At(i), FrsHitData_fID_z.At(i))) // currently set for 166Tb
       {
          if(TMath::Abs(FrsHitData_fID_z.At(i)-FrsHitData_fID_z2.At(i)< 0.4)) frs_zvsaoq->Fill( FrsHitData_fID_AoQ_corr.At(i),FrsHitData_fID_z.At(i));
          frs_z1vsz2->Fill(FrsHitData_fID_z2.At(i), FrsHitData_fID_z.At(i));
@@ -258,38 +297,47 @@ Bool_t aida_ana::Process(Long64_t entry)
 
    for(int i = 0; i < aidadecayhits; i++)
    {
+
       aida_decay_time = AidaDecayHits_Time[i];
 
-      if (AidaDecayHits_EnergyX[i] < 350 && AidaDecayHits_EnergyY[i] < 450) continue;
+      if (/*AidaDecayHits_EnergyX[i] < 350 && AidaDecayHits_EnergyY[i] < 450 &&*/ TMath::Abs(AidaDecayHits_EnergyX[i] - AidaDecayHits_EnergyY[i]) > 200) continue;
+
+      // check if the strips is in the list of broken strips
+
+      if(AidaDecayHits_DSSD[i] == 2){
+         aida2_decays_strip_xy->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
+      }
+
+      
 
       if(AidaDecayHits_DSSD[i] == 1 && TMath::Abs(AidaDecayHits_TimeX[i] - AidaDecayHits_TimeY[i]) < 1e3)
       {
+         if (std::find(broken_xstrips.begin(), broken_xstrips.end(), AidaDecayHits_StripX[i]) != broken_xstrips.end() || std::find(broken_ystrips.begin(), broken_ystrips.end(), AidaDecayHits_StripY[i]) != broken_ystrips.end()) continue;
+
          aida_decay_map1[AidaDecayHits_Time[i]] = std::make_pair(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
 
          aida_decay_frontback_energy_diff->Fill(AidaDecayHits_EnergyX[i], AidaDecayHits_EnergyY[i]);
          aida_decay_frontback_time_diff->Fill(AidaDecayHits_TimeX[i]- AidaDecayHits_TimeY[i]);
          aida_decay_cluster_size->Fill(AidaDecayHits_ClusterSizeX[i], AidaDecayHits_ClusterSizeY[i]);
 
-         if(*EventHeader_fSpillFlag == true){
-            if(AidaDecayHits_DSSD[i] == 1)
-            {
-               aida_decays_strip_xy_onspill->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
-            }
+         aida_decays_strip_xy->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
+         if(*EventHeader_fSpillFlag == true)
+         {
+            aida_decays_strip_xy_onspill->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
          }
-         if(*EventHeader_fSpillFlag == false){
-            if(AidaDecayHits_DSSD[i] == 1)
+            
+         if(*EventHeader_fSpillFlag == false)
+         {
+            aida_decays_strip_xy_offspill->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
+            for(int j = 0; j < bplasthits; j++)
             {
-               aida_decays_strip_xy_offspill->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
+               if(bPlastTwinpeaksCalData_fdetector_id[j] > 128) continue;
+               bplast_time = bPlastTwinpeaksCalData_fwr_t[j];
+               time_diff_aida_bplast = aida_decay_time - bplast_time;
+               aida_bplast_wr_time_diff->Fill(time_diff_aida_bplast);
             }
          }
 
-         for(int j = 0; j < bplasthits; j++)
-         {
-            if(bPlastTwinpeaksCalData_fdetector_id[j] > 128) continue;
-            bplast_time = bPlastTwinpeaksCalData_fwr_t[j];
-            time_diff_aida_bplast = aida_decay_time - bplast_time;
-            aida_bplast_wr_time_diff->Fill(time_diff_aida_bplast);
-         }
       }
 
 
