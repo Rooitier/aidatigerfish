@@ -32,6 +32,7 @@
 
 // Implants
 TH2F* aida_implants_strip_xy;
+TH2F* aida_implants_strip_xy_pre;
 TH2F* aida2_implants_strip_xy;
 
 TH1F* sc41_hits;
@@ -71,11 +72,21 @@ TH1F* aida_implant_decay_time;
 
 TH1F* aida_bplast_wr_time_diff;
 
+TH1F* bplast_germanium_wr_time_diff;
+
+TH1F* aida_degas_wr_time_diff;
+
+TH1F* aida_wr_times;
+
+TH1F* germanium_wr_times;
+
 TH2F* aida_decay_frontback_energy_diff;
 
 TH1F* aida_decay_frontback_time_diff;
 
 TH2F* aida_decay_cluster_size;
+
+TH1F* germanium_energy;
 
 
 TH2F* frs_zvsaoq;
@@ -87,14 +98,16 @@ TH2F* frs_x2vsx4;
 
 uint64_t wr_experiment_start = 1.71420318e+18;
 uint64_t wr_experiment_end = 1.71420372e+18;
-int64_t duration_in_seconds = (wr_experiment_end - wr_experiment_start)/1e3;
-int64_t slices_every = 20; //us
+int64_t duration_in_seconds = (wr_experiment_end - wr_experiment_start)/1e9;
+int64_t slices_every = 1; //s
 int64_t number_of_slices = duration_in_seconds/slices_every;
 
 std::map<int64_t, std::pair<int, int>> aida_implants_map1;
 std::map<int64_t, std::pair<int, int>> aida_implants_map2;
 std::map<int64_t, std::pair<int, int>> aida_decay_map1;
 std::map<int64_t, std::pair<int, int>> aida_decay_map2;
+
+std::map<int64_t, double> germanium_map;
 
 // Load TCutG .root file
 
@@ -162,10 +175,10 @@ void aida_ana::SlaveBegin(TTree * /*tree*/)
 
    //Implants
    aida_implants_strip_xy = new TH2F("aida_implants_xy", "AIDA Implants XY DSSSD 1", 386, 0, 386, 128, 0, 128);
+   aida_implants_strip_xy_pre = new TH2F("aida_implants_xy_pre", "AIDA Implants XY DSSSD 1 Preprocessing", 386, 0, 386, 128, 0, 128);
    aida2_implants_strip_xy = new TH2F("aida2_implants_xy", "AIDA Implants XY DSSSD 2", 386, 0, 386, 128, 0, 128);
 
    sc41_hits = new TH1F("sc41_hits", "SC41 hits", number_of_slices, 0, duration_in_seconds);
-
 
    // Decays
 
@@ -174,38 +187,30 @@ void aida_ana::SlaveBegin(TTree * /*tree*/)
 
    aida_decays_xy = new TH2F("aida_decays_xy", "AIDA Decays XY", 386, 0, 386, 128, 0, 128);
    aida_decays_strip_xy_onspill = new TH2F("aida_decays_xy_onspill", "AIDA Decays XY DSSSD 1 Onspill", 386, 0, 386, 128, 0, 128);
-   // aida2_decays_strip_xy_onspill = new TH2F("aida2_decays_xy_onspill", "AIDA Decays XY DSSSD 2 Onspill", 386, 0, 386, 128, 0, 128);
+
+   aida_wr_times = new TH1F("aida_wr_times", "AIDA WR Times", number_of_slices, 0, duration_in_seconds);
+
+   germanium_wr_times = new TH1F("germanium_wr_times", "Germanium WR Times", number_of_slices, 0, duration_in_seconds);
 
    aida_decays_strip_xy_offspill = new TH2F("aida_decays_xy_offspill", "AIDA Decays XY DSSSD 1 Offspill", 386, 0, 386, 128, 0, 128);
-   // aida2_decays_strip_xy_offspill = new TH2F("aida2_decays_xy_offspill", "AIDA Decays XY DSSSD 2 Offspill", 386, 0, 386, 128, 0, 128);
-
-   // implant_rate = new TH1F("implant_rate", "Implant rate", number_of_slices, 0, duration_in_seconds);
-   // decay_rate_onspill = new TH1F("decay_rate_onspill", "Decay rate onspill", number_of_slices, 0, duration_in_seconds);
-   // decay_rate_offspill = new TH1F("decay_rate_offspill", "Decay rate offspill", number_of_slices, 0, duration_in_seconds);
-
-   // aida_x_decays = new TH1F("aida_x_decays", "AIDA X Decays", 386, 0,386);
-   // aida_y_decays = new TH1F("aida_y_decays", "AIDA Y Decays", 128, 0,128);
-
-   // aida2_x_decays = new TH1F("aida2_x_decays", "AIDA2 X Decays", 386, 0,386);
-   // aida2_y_decays = new TH1F("aida2_y_decays", "AIDA2 Y Decays", 128, 0,128);
-
-   // aida_decays_time_xy = new TH1F("aida_decays_time_xy", "AIDA Decays XY Time", 1e3,-5e3,5e3);
-   // aida2_decays_time_xy = new TH1F("aida2_decays_time_xy", "AIDA2 Decays XY Time", 1e3,-5e3,5e3);
-
-   // aida_decay_energy_xy = new TH2F("aida_decay_energy_xy", "AIDA Decay Energy XY", 1e3, 0, 1e4, 1e3, 0, 1e4);
-   // aida2_decay_energy_xy = new TH2F("aida2_decay_energy_xy", "AIDA2 Decay Energy XY", 1e3, 0, 1e4, 1e3, 0, 1e4);
 
    aida_implant_decay_time_uncorrel = new TH1F("aida_implant_decay_time_uncorrel", "AIDA Implant Decay Time Random", 2e3, -1e4, 1e5);
 
-   aida_implant_decay_time = new TH1F("aida_implant_decay_time", "AIDA Implant Decay Time", 2e3, -1e4, 1e5);
+   aida_implant_decay_time = new TH1F("aida_implant_decay_time", "AIDA Implant Decay Time", 4e2, -1e4, 1e5);
 
    aida_bplast_wr_time_diff = new TH1F("aida_bplast_wr_time_diff", "AIDA BPlast WR Time Difference", 1e3, -8e4, 8e4);
+
+   bplast_germanium_wr_time_diff = new TH1F("bplast_germanium_wr_time_diff", "BPlast Germanium WR Time Difference", 1e3, -8e4, 8e4);
+
+   aida_degas_wr_time_diff = new TH1F("aida_degas_wr_time_diff", "AIDA Degas WR Time Difference", 1e3, -8e4, 8e4);
 
    aida_decay_frontback_energy_diff = new TH2F("aida_decay_frontback_energy_diff", "AIDA Decay Front vs Back Energy Difference", 1e3, 0, 1e4, 1e3, 0, 1e4);
 
    aida_decay_frontback_time_diff = new TH1F("aida_decay_frontback_time_diff", "AIDA Decay Front vs Back Time Difference", 1e3, -5e3,5e3);
 
    aida_decay_cluster_size = new TH2F("aida_decay_cluster_size", "AIDA Decay Cluster Size", 10, 0, 10, 10, 0, 10);
+
+   germanium_energy = new TH1F("germanium_energy", "Germanium Energy", 1.5e3, 0, 1.5e3);
 
    frs_zvsaoq = new TH2F("frs_zvsaoq", "FRS Z vs A/Q", 1e3, 2.3, 2.7, 1e3,58, 68);
    frs_z1vsz2 = new TH2F("frs_z1vsz2", "FRS Z1 vs Z2", 1e3, 58, 68, 1e3, 58, 68);
@@ -261,6 +266,7 @@ Bool_t aida_ana::Process(Long64_t entry)
    int aidaimphits = AidaImplantHits_Time.GetSize();
    int aidadecayhits = AidaDecayHits_Time.GetSize();
    int bplasthits = bPlastTwinpeaksCalData_fwr_t.GetSize();
+   int germaniumhits = GermaniumCalData_fwr_t.GetSize();
 
    // Implanted ion map
    for (int i =0; i < frshits; i++)
@@ -278,7 +284,7 @@ Bool_t aida_ana::Process(Long64_t entry)
          {
             if(AidaImplantHits_DSSD[j] == 1 && AidaImplantHits_Stopped[j] == true)
             {
-               // aida_implants_strip_xy->Fill(AidaImplantHits_StripX[j], AidaImplantHits_StripY[j]);
+               aida_implants_strip_xy_pre->Fill(AidaImplantHits_StripX[j], AidaImplantHits_StripY[j]);
                aida_implant_counter++;
                aida_implants_map1[AidaImplantHits_Time[j]] = std::make_pair(AidaImplantHits_StripX[j], AidaImplantHits_StripY[j]);
             }
@@ -300,7 +306,7 @@ Bool_t aida_ana::Process(Long64_t entry)
 
       aida_decay_time = AidaDecayHits_Time[i];
 
-      if (/*AidaDecayHits_EnergyX[i] < 350 && AidaDecayHits_EnergyY[i] < 450 &&*/ TMath::Abs(AidaDecayHits_EnergyX[i] - AidaDecayHits_EnergyY[i]) > 200) continue;
+      aida_wr_times->Fill((aida_decay_time - wr_experiment_start)/1e9);
 
       // check if the strips is in the list of broken strips
 
@@ -308,13 +314,22 @@ Bool_t aida_ana::Process(Long64_t entry)
          aida2_decays_strip_xy->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
       }
 
-      
-
       if(AidaDecayHits_DSSD[i] == 1 && TMath::Abs(AidaDecayHits_TimeX[i] - AidaDecayHits_TimeY[i]) < 1e3)
       {
-         if (std::find(broken_xstrips.begin(), broken_xstrips.end(), AidaDecayHits_StripX[i]) != broken_xstrips.end() || std::find(broken_ystrips.begin(), broken_ystrips.end(), AidaDecayHits_StripY[i]) != broken_ystrips.end()) continue;
 
-         aida_decay_map1[AidaDecayHits_Time[i]] = std::make_pair(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
+         // conditions for the decay event
+
+         // removing broken strips
+
+         if (std::find(broken_xstrips.begin(), broken_xstrips.end(), AidaDecayHits_StripX[i]) != broken_xstrips.end() || std::find(broken_ystrips.begin(), broken_ystrips.end(), AidaDecayHits_StripY[i]) != broken_ystrips.end()) continue;
+         
+         // FB low dE noise cut
+         if (AidaDecayHits_EnergyX[i] < 250 && AidaDecayHits_EnergyY[i] < 250) continue;
+
+         // FB energy difference 200 keV
+         if (TMath::Abs(AidaDecayHits_EnergyX[i] - AidaDecayHits_EnergyY[i]) > 200) continue;
+         
+         
 
          aida_decay_frontback_energy_diff->Fill(AidaDecayHits_EnergyX[i], AidaDecayHits_EnergyY[i]);
          aida_decay_frontback_time_diff->Fill(AidaDecayHits_TimeX[i]- AidaDecayHits_TimeY[i]);
@@ -323,11 +338,13 @@ Bool_t aida_ana::Process(Long64_t entry)
          aida_decays_strip_xy->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
          if(*EventHeader_fSpillFlag == true)
          {
+            
             aida_decays_strip_xy_onspill->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
          }
             
          if(*EventHeader_fSpillFlag == false)
          {
+            aida_decay_map1[AidaDecayHits_Time[i]] = std::make_pair(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
             aida_decays_strip_xy_offspill->Fill(AidaDecayHits_StripX[i], AidaDecayHits_StripY[i]);
             for(int j = 0; j < bplasthits; j++)
             {
@@ -337,44 +354,24 @@ Bool_t aida_ana::Process(Long64_t entry)
                aida_bplast_wr_time_diff->Fill(time_diff_aida_bplast);
             }
          }
-
       }
+   }
 
+   // filling germanium map
+   for(int k = 0; k < germaniumhits; k++)
+   {
+      degas_time = GermaniumCalData_fwr_t.At(k);
+      double energy = GermaniumCalData_fchannel_energy.At(k);
+      int det = GermaniumCalData_fdetector_id.At(k);
+      int cry = GermaniumCalData_fcrystal_id.At(k);
 
-   //    if(AidaDecayHits_DSSD[i] == 1)
-   //    {
-   //       aida_x_decays->Fill(AidaDecayHits_StripX[i]);
-   //       aida_y_decays->Fill(AidaDecayHits_StripY[i]);
-   //    }
-   //    if(AidaDecayHits_DSSD[i] == 2)
-   //    {
-   //       aida2_x_decays->Fill(AidaDecayHits_StripX[i]);
-   //       aida2_y_decays->Fill(AidaDecayHits_StripY[i]);
-   //    }
+      if (det < 1 || det > 12) continue; // detectors are labelled 1-12
+      if (cry < 0 || cry > 2) continue; // crystals are indexed 0,1,2
+   
+      germanium_map[degas_time] = energy;
 
-
-   //    if(AidaDecayHits_DSSD[i] == 1){
-   //       aida_decays_time_xy->Fill(AidaDecayHits_TimeX[i]- AidaDecayHits_TimeY[i]);
-   //       aida_decay_energy_xy->Fill(AidaDecayHits_EnergyX[i], AidaDecayHits_EnergyY[i]);
-   //    }
-
-   //    if(AidaDecayHits_DSSD[i] == 2){
-   //       aida2_decays_time_xy->Fill(AidaDecayHits_TimeX[i]- AidaDecayHits_TimeY[i]);
-   //       aida2_decay_energy_xy->Fill(AidaDecayHits_EnergyX[i], AidaDecayHits_EnergyY[i]);
-   //    }
-   // }
-
-
-   // if (frshits > 0){
-   //    uint64_t wrt = FrsHitData_fwr_t.At(0);
-   //    int64_t time_millisec = (wrt - wr_experiment_start)/1e3;
-   //    // int64_t time_sec = (wrt - wr_experiment_start)/1e9;
-   //    decay_rate_offspill->Fill(time_millisec, aida_decay_counter_offspill);
-   //    decay_rate_onspill->Fill(time_millisec, aida_decay_counter_onspill);
-   //    implant_rate->Fill(time_millisec, aida_implant_counter);
-   //    sc41_hits->Fill(time_millisec, sc41counter);
-   // }
-
+      germanium_energy->Fill(energy);
+      germanium_wr_times->Fill((degas_time - wr_experiment_start)/1e9);
 
    }
 
@@ -410,9 +407,6 @@ void aida_ana::SlaveTerminate()
    //    aida_decays_xy->Fill(decayit->second.first, decayit->second.second);
    // }
 
-   auto impit = aida_implants_map1.begin();
-   auto decayit = aida_decay_map1.begin();
-
    // while (impit != aida_implants_map1.end())
    // {
    //    int64_t aida_implant_time = impit->first;
@@ -435,19 +429,23 @@ void aida_ana::SlaveTerminate()
    //    ++impit;
    // }
 
+   auto impit = aida_implants_map1.begin();
+   auto decayit = aida_decay_map1.begin();
+   auto germanit = germanium_map.begin();
+
    while (decayit != aida_decay_map1.end())
    {
       int64_t aida_decay_time = decayit->first;
-      
 
       // Move impit to the first implant that is at or after the current decay
-      while (impit != aida_implants_map1.end() && impit->first < aida_decay_time)
+      while (impit != aida_implants_map1.end() && impit->first <= aida_decay_time)
       {
          ++impit;
       }
 
       // Start from the current implant and go backwards until we find a matching implant
       auto impit_back = impit;
+
       while (impit_back != aida_implants_map1.begin())
       {
          --impit_back;
@@ -455,17 +453,37 @@ void aida_ana::SlaveTerminate()
          {
                int64_t aida_implant_time = impit_back->first;
                int aida_implant_decay_dt = (aida_decay_time - aida_implant_time)/1e6; // time in ms
+
+               // If the decay is within a 400 us time window to the implant, skip this iteration
+               if (aida_implant_decay_dt < 0.4) {
+                  break;
+               }
+
                aida_implant_decay_time->Fill(aida_implant_decay_dt);
                aida_implants_strip_xy->Fill(impit_back->second.first, impit_back->second.second);
                aida_decays_xy->Fill(decayit->second.first, decayit->second.second);
+
+
+               // Iterate over the germanit map and fill the germanium spectrum when a matching decay and implant is found
+               // germanit = germanium_map.lower_bound(aida_decay_time); // Start from the first entry that is not less than aida_decay_time
+               // while (germanit != germanium_map.end())
+               // {
+               //    // Fill the germanium spectrum
+               //    germanium_energy->Fill(germanit->second);
+               //    int64_t degas_time = germanit->first;
+               //    int64_t time_diff_aida_germanium = degas_time - aida_decay_time;
+               //    aida_degas_wr_time_diff->Fill(time_diff_aida_germanium);
+               //    ++germanit;
+               // }
+
+               // Remove the matched implant from the implant map
+               aida_implants_map1.erase(impit_back);
                break;
          }
       }
 
       ++decayit;
    }
-
-
 }
 
 void aida_ana::Terminate()

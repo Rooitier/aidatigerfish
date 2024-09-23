@@ -108,7 +108,6 @@ public :
    TTreeReaderArray<unsigned int> FrsHitData_fBits = {fReader, "FrsHitData.fBits"};
    TTreeReaderArray<ULong_t> FrsHitData_fwr_t = {fReader, "FrsHitData.fwr_t"};
    TTreeReaderArray<unsigned short> FrsHitData_ftpat = {fReader, "FrsHitData.ftpat"};
-   TTreeReaderArray<ULong_t> FrsHitData_fwr_travmus = {fReader, "FrsHitData.fwr_travmus"};
    TTreeReaderArray<Float_t> FrsHitData_fID_x2 = {fReader, "FrsHitData.fID_x2"};
    TTreeReaderArray<Float_t> FrsHitData_fID_y2 = {fReader, "FrsHitData.fID_y2"};
    TTreeReaderArray<Float_t> FrsHitData_fID_x4 = {fReader, "FrsHitData.fID_x4"};
