@@ -32,12 +32,10 @@
 *.out
 *.app
 
-# ROOT files
-
-*.root
-
 # pics directory
 
 pics/
+
+results/
 
 .vscode/

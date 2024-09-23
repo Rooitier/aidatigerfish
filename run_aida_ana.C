@@ -13,5 +13,5 @@ void run_aida_ana(){
     TProof::Open("workers=5");
     t.SetProof();
 
-    t.Process("/u/jbormans/S100/analysis/aidatigerfish/aida_ana.C","/u/jbormans/S100/analysis/aidatigerfish/aida_ana.root");
+    t.Process("/u/jbormans/S100/analysis/aidatigerfish/aida_ana.C","/u/jbormans/S100/analysis/aidatigerfish/results/aida_ana.root");
 }
