@@ -28,6 +28,13 @@ public :
    TTreeReader     fReader;  //!the tree reader
    TTree          *fChain = 0;   //!pointer to the analyzed TTree or TChain
 
+   std::map<int64_t, std::pair<int, int>>* aida_implants_map1;
+   std::map<int64_t, std::pair<int, int>>* aida_implants_map2;
+   std::map<int64_t, std::pair<int, int>>* aida_decay_map1;
+   std::map<int64_t, std::pair<int, int>>* aida_decay_map2;
+
+   std::map<int64_t, double>* germanium_map;
+
    // Readers to access the data (delete the ones you do not need).
    TTreeReaderValue<uint64_t> EventHeader_fEventno = {fReader, "EventHeader.fEventno"};
    TTreeReaderValue<int> EventHeader_fTrigger = {fReader, "EventHeader.fTrigger"};

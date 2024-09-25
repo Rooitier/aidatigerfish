@@ -71,6 +71,8 @@
         "cinttypes": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "aida_strip.C": "cpp",
+        "aida_impdecay.C": "cpp"
     }
 }
