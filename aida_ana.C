@@ -441,12 +441,12 @@ Bool_t aida_ana::Process(Long64_t entry)
             // germanium_map[degas_time] = energy;
             // (*germanium_map)[degas_time] = energy;
 
-            // for(int l = 0; l < aidadecayhits; l++)
-            // {
-            //    aida_decay_time = AidaDecayHits_Time[l];
-            //    time_diff_aida_germanium = aida_decay_time - degas_time;
-            //    aida_degas_wr_time_diff->Fill(time_diff_aida_germanium);
-            // }
+            for(int l = 0; l < aidadecayhits; l++)
+            {
+               aida_decay_time = AidaDecayHits_Time[l];
+               time_diff_aida_germanium = aida_decay_time - degas_time;
+               aida_degas_wr_time_diff->Fill(time_diff_aida_germanium);
+            }
       }
    }
 
@@ -504,52 +504,52 @@ void aida_ana::SlaveTerminate()
    //    ++impit;
    // }
 
-   auto impit = aida_implants_map1->begin();
-   auto decayit = aida_decay_map1->begin();
-   auto germanit = germanium_map->begin();
+   // auto impit = aida_implants_map1->begin();
+   // auto decayit = aida_decay_map1->begin();
+   // auto germanit = germanium_map->begin();
 
-   while (decayit != aida_decay_map1->end())
-   {
-      int64_t aida_decay_time = decayit->first;
+   // while (decayit != aida_decay_map1->end())
+   // {
+   //    int64_t aida_decay_time = decayit->first;
 
-      // Move impit to the first implant that is at or after the current decay
-      while (impit != aida_implants_map1->end() && impit->first <= aida_decay_time)
-      {
-         ++impit;
-      }
+   //    // Move impit to the first implant that is at or after the current decay
+   //    while (impit != aida_implants_map1->end() && impit->first <= aida_decay_time)
+   //    {
+   //       ++impit;
+   //    }
 
-      // Start from the current implant and go backwards until we find a matching implant
-      auto impit_back = impit;
+   //    // Start from the current implant and go backwards until we find a matching implant
+   //    auto impit_back = impit;
 
-      while (impit_back != aida_implants_map1->begin())
-      {
-         --impit_back;
-         if (impit_back->second.first == decayit->second.first && impit_back->second.second == decayit->second.second)
-         {
-            int64_t aida_implant_time = impit_back->first;
-            int aida_implant_decay_dt = (aida_decay_time - aida_implant_time)/1e6; // time in ms
+   //    while (impit_back != aida_implants_map1->begin())
+   //    {
+   //       --impit_back;
+   //       if (impit_back->second.first == decayit->second.first && impit_back->second.second == decayit->second.second)
+   //       {
+   //          int64_t aida_implant_time = impit_back->first;
+   //          int aida_implant_decay_dt = (aida_decay_time - aida_implant_time)/1e6; // time in ms
 
-            // If the decay is within a 400 us time window to the implant, skip this iteration
-            if (aida_implant_decay_dt < 0.4) {
-               break;
-            }
+   //          // If the decay is within a 400 us time window to the implant, skip this iteration
+   //          if (aida_implant_decay_dt < 0.4) {
+   //             break;
+   //          }
 
-            aida_implant_decay_time->Fill(aida_implant_decay_dt);
-            aida_implants_strip_xy->Fill(impit_back->second.first, impit_back->second.second);
-            aida_decays_xy->Fill(decayit->second.first, decayit->second.second);
+   //          aida_implant_decay_time->Fill(aida_implant_decay_dt);
+   //          aida_implants_strip_xy->Fill(impit_back->second.first, impit_back->second.second);
+   //          aida_decays_xy->Fill(decayit->second.first, decayit->second.second);
 
-            aida_wr_times->Fill((aida_decay_time - wr_experiment_start)/1e9);
-            // Iterate over the germanit map and fill the germanium spectrum when a matching decay and implant is found
-            // germanit = germanium_map.lower_bound(aida_decay_time); // Start from the first entry that is not less than aida_decay_time
+   //          aida_wr_times->Fill((aida_decay_time - wr_experiment_start)/1e9);
+   //          // Iterate over the germanit map and fill the germanium spectrum when a matching decay and implant is found
+   //          // germanit = germanium_map.lower_bound(aida_decay_time); // Start from the first entry that is not less than aida_decay_time
 
-            // Remove the matched implant from the implant map
-            aida_implants_map1->erase(impit_back);
-            break;
-         }
-      }
+   //          // Remove the matched implant from the implant map
+   //          aida_implants_map1->erase(impit_back);
+   //          break;
+   //       }
+   //    }
 
-      ++decayit;
-   }
+   //    ++decayit;
+   // }
 
    // while (germanit != germanium_map->end())
    // {

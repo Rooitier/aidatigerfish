@@ -51,11 +51,17 @@ void aida_impdecay(/*const char* filename*/) {
     TTreeReaderArray<Float_t> frs_aoq(reader, "FrsHitData.fID_AoQ_corr");
     TTreeReaderArray<uint64_t> frs_time(reader, "FrsHitData.fwr_t");
 
+
+    TTreeReaderArray<ULong_t> bplast_time(reader, "bPlastTwinpeaksCalData.fwr_t");
+    TTreeReaderArray<ushort> bplast_id(reader, "bPlastTwinpeaksCalData.fdetector_id");
+
     uint64_t wr_experiment_start = 1.71420318e+18;
     uint64_t wr_experiment_end = 1.71420372e+18;
     int64_t duration_in_seconds = (wr_experiment_end - wr_experiment_start)/1e9;
     int64_t slices_every = 1; //s
     int64_t number_of_slices = duration_in_seconds/slices_every;
+
+    int counter = 0;
 
     // Load broken strips
 
@@ -80,11 +86,22 @@ void aida_impdecay(/*const char* filename*/) {
         // If the threshold is -1, add the strip to the list of strips to skip
         if (threshold == -1) {
             if (xy == "X") {
+                strip_number = strip_number - 1;
                 broken_xstrips.push_back(strip_number);
             } else if (xy == "Y") {
+                strip_number = strip_number - 1;
                 broken_ystrips.push_back(strip_number);
             }
         }
+    }
+
+    // Print out broken strips
+
+    for(auto x : broken_xstrips) {
+        std::cout << "Broken X strip: " << x << std::endl;
+    }
+    for(auto y : broken_ystrips) {
+        std::cout << "Broken Y strip: " << y << std::endl;
     }
 
     // Load TCutG .root file
@@ -103,7 +120,7 @@ void aida_impdecay(/*const char* filename*/) {
     TCutG *cut163Eu = (TCutG*)cut_file3->Get("CUTG");
 
     // Open the output file
-    TFile* outputFile = new TFile("output.root", "RECREATE");
+    TFile* outputFile = new TFile("presorted.root", "RECREATE");
     if (!outputFile) {
         std::cerr << "Error: Could not create output file " << std::endl;
         return;
@@ -112,41 +129,45 @@ void aida_impdecay(/*const char* filename*/) {
     // Create a new tree with the same structure as the old tree
     TTree* implant_tree = new TTree("aida_implant_tree", "New AIDA Analysis Tree");
 
+    TTree* gatedimplant_tree = new TTree("aida_gatedimplant_tree", "New AIDA Analysis Tree");
+
     TTree* decay_tree = new TTree("aida_decay_tree", "New AIDA Analysis Tree");
 
     TTree* germanium_tree = new TTree("germanium_tree", "New AIDA Analysis Tree");
 
-    // Make maps for the data
-
-    std::map<int64_t, std::pair<int, int>> aida_implant_map;
-    std::map<int64_t, std::pair<int, int>> aida_decay_map;
-    std::map<int64_t, double> germanium_map;
 
     // Define the data structures
     struct implant_data
     {
-        Long64_t time;
+        uint64_t time;
         int x;
         int y;
+        int sp;
+        int bp;
     } aida_implant_data;
-
+    
     struct decay_data
     {
-        Long64_t time;
+        uint64_t time;
         int x;
         int y;
+        int sp;
+        int bp;
     } aida_decay_data;
 
     struct germanium_data
     {
-        Long64_t time;
+        uint64_t time;
         double energy;
+        int sp;
+        int bp;
     } germanium_data;
 
     // Create the branches
-    implant_tree->Branch("implant", &aida_implant_data, "time/L:x/I:y/I");
-    decay_tree->Branch("decay", &aida_decay_data, "time/L:x/I:y/I");
-    germanium_tree->Branch("germanium", &germanium_data, "time/L:energy/D");
+    implant_tree->Branch("implant", &aida_implant_data, "time/l:x/I:y/I:sp/I:bp/I");
+    gatedimplant_tree->Branch("gatedimplant", &aida_implant_data, "time/l:x/I:y/I:sp/I:bp/I");
+    decay_tree->Branch("decay", &aida_decay_data, "time/l:x/I:y/I:sp/I:bp/I");
+    germanium_tree->Branch("germanium", &germanium_data, "time/l:energy/D:sp/I:bp/I");
 
     // Make histogram for drawing germanium data
 
@@ -155,6 +176,7 @@ void aida_impdecay(/*const char* filename*/) {
     TH2F* aida_decay_xy = new TH2F("aida_decay_xy", "AIDA Decay XY", 384, 0, 384, 128, 0, 128);
     TH1F* aida_implant_decay_time = new TH1F("aida_implant_decay_time", "AIDA Implant Decay Time", 4e2, -1e4, 1e5);
     TH1F* aida_wr_times = new TH1F("aida_wr_times", "AIDA WR Times", number_of_slices, 0, duration_in_seconds);
+    TH1F* germanium_decay_energy = new TH1F("germanium_decay_energy", "Germanium Decay Energy", 1.5e3, 0, 1.5e3);
 
     const char spinner[] = {'-', '\\', '|', '/'};
     int totalEntries = reader.GetEntries(true);
@@ -162,32 +184,90 @@ void aida_impdecay(/*const char* filename*/) {
     // Loop over all entries in the old tree
     while (reader.Next()) {
         // Read the data from the old tree
-        // Show the progress of the loop
-        if (reader.GetCurrentEntry() % 1000 == 0) {
-            int progress = (reader.GetCurrentEntry() * 100) / totalEntries;
-            char spin = spinner[reader.GetCurrentEntry() / 1000 % 4];
-            std::cout << "\rProcessing the tree " << reader.GetCurrentEntry() << " (" << progress << "%) " << spin << std::flush;
-        }
+
         // sizes
         int germaniumhits = germanium_time.GetSize();
         int aidadecayhits = decay_time.GetSize();
         int aidaimphits = implant_time.GetSize();
         int frshits = frs_time.GetSize();
+        int bplasthits = bplast_time.GetSize();
+        
+        
+        int spflag = 0;
+        int decflag = 0;
+        int bpflag = 0;
+        int bp1flag = 0;
+        int bp2flag = 0;
 
-        // Implants in coincidence with FRS
-        if (frshits > 0 && aidaimphits > 0) {
+/*         cout << "# of FRS hits:  " << frshits << endl;
+         cout << "# of implant hits:  " << aidaimphits << endl;
+         cout << "# of decay hits:  " << aidadecayhits << endl;
+         cout << "# of gamma hits:  " << germaniumhits << endl;
+         if (bplasthits > 0) cout << "# of bplast hits:  " << bplasthits << endl; */
+
+        if(*spill == true) spflag = 1;
+        if(*spill == false) spflag = 2;
+        
+        
+        
+        for (int j = 0; j < bplasthits; j++) {
+
+//            cout << j << "  " << bplast_id[j] << endl;
+            if(bplast_id[j] < 64) bp1flag = 1;
+            if(bplast_id[j] > 63 && bplast_id[j] < 128) bp2flag = 1;
+
+        }
+    
+    if (bp1flag == 1 && bp2flag == 0) bpflag = 1;
+    if (bp1flag == 0 && bp2flag == 1) bpflag = 2;
+    if (bp1flag == 1 && bp2flag == 1) bpflag = 3;
+        
+//        cout << bp1flag << "  " << bp2flag << "  " << bpflag << endl;
+
+        for (int j = 0; j < aidaimphits; j++) {
+            if (implant_dssd[j] == 1 && implant_stopped[j] == true) {
+                
+                aida_implant_data.time = implant_time[j];
+                aida_implant_data.x = implant_x[j];
+                aida_implant_data.y = implant_y[j];
+                aida_implant_data.sp = spflag;
+                aida_implant_data.bp = bpflag;
+
+                implant_tree->Fill();
+
+            }
+        }
+
+        
+        
+        
+        
+        
+        
+// Implants in coincidence with FRS
+        if (frshits == 1 && aidaimphits == 1) {
             for (int i = 0; i < frshits; i++) {
                 if (cutg->IsInside(frs_z[i], frs_x2[i]) && cutg1->IsInside(frs_aoq[i], frs_z[i])) {
                     bool filltree = false;
                     for (int j = 0; j < aidaimphits; j++) {
                         if (implant_dssd[j] == 1 && implant_stopped[j] == true) {
+                            
                             aida_implant_data.time = implant_time[j];
                             aida_implant_data.x = implant_x[j];
                             aida_implant_data.y = implant_y[j];
-                            // aida_implant_xy->Fill(implant_x[j], implant_y[j]);
-                            // Add to the map
-                            aida_implant_map[implant_time[j]] = std::make_pair(implant_x[j], implant_y[j]);
-                            implant_tree->Fill();
+                            aida_implant_data.sp = spflag;
+                            aida_implant_data.bp = bpflag;
+
+//                            imptime = implant_time[j];
+//                            impx = implant_x[j];
+//                            impy = implant_y[j];
+
+//                            cout << imptime << "  " << implant_time[j] << endl;
+
+                            gatedimplant_tree->Fill();
+
+//                            imp_times->Fill(implant_time[j]);
+                            counter++;
                         }
                     }
                 }
@@ -195,12 +275,15 @@ void aida_impdecay(/*const char* filename*/) {
         }
 
 
-        // Decays in coincidence with Germanium
-        if (aidadecayhits > 0) {
+        
+// Decays in coincidence with Germanium
+        if (aidadecayhits < 3) {
             for (int i = 0; i < aidadecayhits; i++) {
                 
-                // DSSD 1 and time calibrated events
-                if(decay_dssd[i] != 1 && TMath::Abs(decay_time_x[i] - decay_time_y[i]) > 1e3) continue;
+                // DSSD 1 
+                if(decay_dssd[i] != 1) continue;
+                // Decay time calibrated events
+                if (TMath::Abs(decay_time_x[i] - decay_time_y[i]) > 1e3) continue;
                 // Removing broken strips
                 if (std::find(broken_xstrips.begin(), broken_xstrips.end(), decay_x[i]) != broken_xstrips.end() || std::find(broken_ystrips.begin(), broken_ystrips.end(), decay_y[i]) != broken_ystrips.end()) continue;
                 // FB low dE noise cut
@@ -208,123 +291,60 @@ void aida_impdecay(/*const char* filename*/) {
                 // FB low E noise cut
                 if (decay_energy_x[i] < 200 && decay_energy_y[i] < 200) continue;
                 // Spill off decay
-                if(*spill == true) continue;
+//                if(*spill == true) continue;
 
                 aida_decay_data.time = decay_time[i];
                 aida_decay_data.x = decay_x[i];
                 aida_decay_data.y = decay_y[i];
                 // aida_decay_xy->Fill(decay_x[i], decay_y[i]);
-                // Add to the map
-                aida_decay_map[decay_time[i]] = std::make_pair(decay_x[i], decay_y[i]);
+                aida_decay_data.sp = spflag;
+                aida_decay_data.bp = bpflag;
+
                 decay_tree->Fill();
-  
+                
+                decflag = 1;
+              
             }
         }
 
-        if(germaniumhits > 0){
-            for (int i = 0; i < germaniumhits; i++) {
-                if (germanium_det[i] == 1 /*&& germanium_det[i] <= 12 && germanium_cry[i] >= 0 && germanium_cry[i] <= 2 && germanium_energy[i] >= 0*/) {
-                    germanium_data.time = germanium_time[i];
-                    double energy = germanium_energy[i];
-                    germanium_energy_hist->Fill(energy);
-                    germanium_data.energy = energy;
-                    // Fill the new tree with the data
-                    germanium_tree->Fill();
-                    // Add to the map
-                    germanium_map[germanium_time[i]] = energy;
+        if (decflag == 1){
+            if(germaniumhits > 0 && germaniumhits < 4){
+                for (int i = 0; i < germaniumhits; i++) {
+                    if (germanium_det[i] <= 12 && germanium_cry[i] >= 0 && germanium_cry[i] <= 2 && germanium_energy[i] >= 0) {
+                        germanium_data.time = germanium_time[i];
+                        double energy = germanium_energy[i];
+                        germanium_data.energy = energy;
+                        germanium_data.sp = spflag;
+                        germanium_data.bp = bpflag;
+                        // Fill the new tree with the data
+                        germanium_tree->Fill();
+                    }
                 }
             }
-        } 
-    }
+        }
 
-    // Now we process the three trees - first we correlate the implant and decay events
-
-    // Create a new tree with the good decays
-
-    TTree* good_decay_tree = new TTree("good_decay_tree", "Good Decays");
-
-    // Define the data structure
-
-    struct good_decay_data
-    {
-        Long64_t time;
-        int x;
-        int y;
-    } good_decay;
-
-    // Create the branches
-
-    good_decay_tree->Branch("good_decay", &good_decay, "time/L:x/I:y/I");
-
-    // Create readers for the implant and decay trees
-
-    TTreeReader implant_reader(implant_tree);
-    TTreeReader decay_reader(decay_tree);
-
-    // Loop over the maps
-
-    auto impit = aida_implant_map.begin();
-    auto decayit = aida_decay_map.begin();
-    auto germanit = germanium_map.begin();
-
-    while (decayit != aida_decay_map.end())
-    {
         // Show the progress of the loop
-        if (std::distance(aida_decay_map.begin(), decayit) % 1000 == 0) {
-            int progress = (std::distance(aida_decay_map.begin(), decayit) * 100) / totalEntries;
-            char spin = spinner[std::distance(aida_decay_map.begin(), decayit) / 1000 % 4];
-            std::cout << "\rProcessing the decay map " << std::distance(aida_decay_map.begin(), decayit) << " (" << progress << "%) " << spin << std::flush;
+        if (reader.GetCurrentEntry() % 1000 == 0) {
+            int progress = (reader.GetCurrentEntry() * 100) / totalEntries;
+            char spin = spinner[reader.GetCurrentEntry() / 1000 % 4];
+            std::cout << "\rProcessing the tree " << reader.GetCurrentEntry() << " (" << progress << "%) " << spin << std::flush;
         }
-        int64_t aida_decay_time = decayit->second.first;
-
-        // Move impit to the first implant that is at or after the current decay
-        while (impit != aida_implant_map.end() && impit->second.first <= aida_decay_time)
-        {
-            ++impit;
-        }
-
-        // Start from the current implant and go backwards until we find a matching implant
-        auto impit_back = impit;
-
-        while (impit_back != aida_implant_map.begin())
-        {
-            --impit_back;
-            std::cout << "Checking implant " << impit_back->second.first << " " << impit_back->second.second << std::endl;
-            if (impit_back->second.first == decayit->second.first && impit_back->second.second == decayit->second.second)
-            {
-
-                std::cout << "Found a matching implant and decay event" << std::endl;
-                int64_t aida_implant_time = impit_back->second.first;
-                int aida_implant_decay_dt = (aida_decay_time - aida_implant_time)/1e6; // time in ms
-
-                // If the decay is within a 400 us time window to the implant, skip this iteration
-                if (aida_implant_decay_dt < 0.4) {
-                    break;
-                }
-
-                aida_implant_decay_time->Fill(aida_implant_decay_dt);
-                aida_implant_xy->Fill(impit_back->second.first, impit_back->second.second);
-                aida_decay_xy->Fill(decayit->second.first, decayit->second.second);
-
-                aida_wr_times->Fill((aida_decay_time - wr_experiment_start)/1e9);
-                // Iterate over the germanit tree and fill the germanium spectrum when a matching decay and implant is found
-
-                // Remove the matched implant from the implant tree
-                aida_implant_map.erase(impit_back);
-                break;
-            }
-        }
-
-        ++decayit;
+        
     }
+
 
     // Write the new tree to the file
-    aida_implant_xy->Write();
-    aida_implant_decay_time->Write();
-    aida_wr_times->Write();
-    germanium_energy_hist->Write();
-    aida_decay_xy->Write();
+    // germanium_energy_hist->Write();
+    // aida_implant_xy->Write();
+    // aida_implant_decay_time->Write();
+    // aida_wr_times->Write();
+    // germanium_decay_energy->Write();
+    // aida_decay_xy->Write();
+
+    cout << "# of 166Tb implants:  " << counter << endl;
+    
     implant_tree->Write();
+    gatedimplant_tree->Write();
     decay_tree->Write();
     germanium_tree->Write();
 

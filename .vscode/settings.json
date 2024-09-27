@@ -73,6 +73,8 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "aida_strip.C": "cpp",
-        "aida_impdecay.C": "cpp"
+        "aida_impdecay.C": "cpp",
+        "decaygamma.C": "cpp",
+        "aj.C": "cpp"
     }
 }
