@@ -5,9 +5,10 @@
 #include <TTreeReaderArray.h>
 #include <TTreeReaderValue.h>
 
-void aida_impdecay(/*const char* filename*/) {
+void aida_impdecay(const char* input, const char* output) {
     // Open the file
-    TFile* file = TFile::Open("/lustre/gamma/jeroen/S100/cluster/trees/special/162Eu_new_0025_0001_aidaana.root");
+    // TFile* file = TFile::Open("/lustre/gamma/jeroen/S100/cluster/trees/special/162Eu_new_0025_0001_aidaana.root");
+    TFile* file = TFile::Open(input);
     if (!file) {
         std::cerr << "Error: Could not open file " << std::endl;
         return;
@@ -119,8 +120,9 @@ void aida_impdecay(/*const char* filename*/) {
 
     TCutG *cut163Eu = (TCutG*)cut_file3->Get("CUTG");
 
+
     // Open the output file
-    TFile* outputFile = new TFile("presorted.root", "RECREATE");
+    TFile* outputFile = new TFile(output, "RECREATE");
     if (!outputFile) {
         std::cerr << "Error: Could not create output file " << std::endl;
         return;
@@ -237,12 +239,6 @@ void aida_impdecay(/*const char* filename*/) {
 
             }
         }
-
-        
-        
-        
-        
-        
         
 // Implants in coincidence with FRS
         if (frshits == 1 && aidaimphits == 1) {
@@ -349,6 +345,8 @@ void aida_impdecay(/*const char* filename*/) {
     germanium_tree->Write();
 
     // Close the file
+    file->Close();
+    outputFile->Close();
     delete file;
     delete outputFile;
 }

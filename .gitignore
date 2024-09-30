@@ -39,4 +39,12 @@ pics/
 results/
 
 .vscode/
+
 aj.C
+.vscode/settings.json
+implantdecay.root
+out2.root
+timing_and_position_implant_decay.root
+timing_only_implantdecay.root
+out2.root
+.vscode/settings.json
