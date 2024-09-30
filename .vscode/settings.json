@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "*.spec": "cpp",
-        "decaygamma.C": "cpp",
-        "aida_impdecay.C": "cpp",
-        "aida_ana.C": "cpp"
-    }
-}
