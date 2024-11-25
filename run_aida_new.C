@@ -15,3 +15,4 @@ void run_aida_new(){
 
     t.Process("/u/jbormans/S100/analysis/aidatigerfish/aida_new.C","/u/jbormans/S100/analysis/aidatigerfish/results/aida_new.root");
 }
+

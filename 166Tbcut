@@ -1,0 +1,25 @@
+{
+//========= Macro generated from object: CUTG/Graph
+//========= by ROOT version6.26/10
+   
+   TCutG *cutg = new TCutG("CUTG",14);
+   cutg->SetVarX("h2_aidagerm_decays_dssd1");
+   cutg->SetVarY("");
+   cutg->SetTitle("Graph");
+   cutg->SetFillStyle(1000);
+   cutg->SetPoint(0,293.986,39.0083);
+   cutg->SetPoint(1,262.588,57.9174);
+   cutg->SetPoint(2,261.233,73.6529);
+   cutg->SetPoint(3,267.106,87.1405);
+   cutg->SetPoint(4,279.755,100.76);
+   cutg->SetPoint(5,303.021,105.785);
+   cutg->SetPoint(6,320.188,104.595);
+   cutg->SetPoint(7,332.386,90.1818);
+   cutg->SetPoint(8,340.518,77.0909);
+   cutg->SetPoint(9,343.454,58.9752);
+   cutg->SetPoint(10,338.033,50.5124);
+   cutg->SetPoint(11,316.8,42.7107);
+   cutg->SetPoint(12,307.539,38.3471);
+   cutg->SetPoint(13,293.986,39.0083);
+   cutg->Draw("");
+}

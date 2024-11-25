@@ -5,14 +5,14 @@
 #include <TTreeReaderArray.h>
 #include <TTreeReaderValue.h>
 
-void aida_impdecay(const char* input, const char* output) {
+void aida_impdecay(/*const char* input, const char* output*/) {
     // Open the file
-    // TFile* file = TFile::Open("/lustre/gamma/jeroen/S100/cluster/trees/special/162Eu_new_0025_0001_aidaana.root");
-    TFile* file = TFile::Open(input);
-    if (!file) {
-        std::cerr << "Error: Could not open file " << std::endl;
-        return;
-    }
+    TFile* file = TFile::Open("/lustre/gamma/jeroen/S100/cluster/trees/162Eu/162Eu_0007_0001.root");
+    // TFile* file = TFile::Open(filea);
+    // if (!file) {
+    //     std::cerr << "Error: Could not open file " << std::endl;
+    //     return;
+    // }
 
     // Get the existing tree
     TTree* old_tree = dynamic_cast<TTree*>(file->Get("evt"));
@@ -40,11 +40,14 @@ void aida_impdecay(const char* input, const char* output) {
     TTreeReaderArray<Double_t> decay_energy_y(reader, "AidaDecayHits.EnergyY");
     TTreeReaderArray<Double_t> decay_x(reader, "AidaDecayHits.StripX");
     TTreeReaderArray<Double_t> decay_y(reader, "AidaDecayHits.StripY");
+    TTreeReaderArray<Int_t> decay_cluster_size_x(reader, "AidaDecayHits.ClusterSizeX");
+    TTreeReaderArray<Int_t> decay_cluster_size_y(reader, "AidaDecayHits.ClusterSizeY");
 
-    TTreeReaderArray<uint64_t> germanium_time(reader, "GermaniumCalData.fwr_t");
-    TTreeReaderArray<uint> germanium_det(reader, "GermaniumCalData.fdetector_id");
-    TTreeReaderArray<uint> germanium_cry(reader, "GermaniumCalData.fcrystal_id");
-    TTreeReaderArray<Double_t> germanium_energy(reader, "GermaniumCalData.fchannel_energy");
+    // TTreeReaderArray<uint64_t> germanium_time(reader, "GermaniumAnlData.fwr_t");
+    TTreeReaderArray<int64_t> germanium_abs_ev_time(reader, "GermaniumAnlData.fabsolute_event_time");
+    TTreeReaderArray<uint> germanium_det(reader, "GermaniumAnlData.fdetector_id");
+    TTreeReaderArray<uint> germanium_cry(reader, "GermaniumAnlData.fcrystal_id");
+    TTreeReaderArray<Double_t> germanium_energy(reader, "GermaniumAnlData.fchannel_energy");
 
     TTreeReaderArray<Float_t> frs_x2(reader, "FrsHitData.fID_x2");
     TTreeReaderArray<Float_t> frs_z(reader, "FrsHitData.fID_z");
@@ -54,6 +57,7 @@ void aida_impdecay(const char* input, const char* output) {
 
 
     TTreeReaderArray<ULong_t> bplast_time(reader, "bPlastTwinpeaksCalData.fwr_t");
+    TTreeReaderArray<uint64_t> bplast_abs_ev_time(reader, "bPlastTwinpeaksCalData.fabsolute_event_time");
     TTreeReaderArray<ushort> bplast_id(reader, "bPlastTwinpeaksCalData.fdetector_id");
 
     uint64_t wr_experiment_start = 1.71420318e+18;
@@ -107,22 +111,23 @@ void aida_impdecay(const char* input, const char* output) {
 
     // Load TCutG .root file
 
-    TFile *cut_file = new TFile("/u/jbormans/S100/analysis/aidatigerfish/X2_Z1_65.root");
-    TCutG *cutg = (TCutG*)cut_file->Get("CUTG");
+    TFile *Eucut_file = new TFile("/u/jbormans/S100/analysis/aidatigerfish/160Eu_1609.root");
 
-    TFile *cut_file1 = new TFile("/u/jbormans/S100/analysis/aidatigerfish/166Tb_Z_AoQ.root");
-    TCutG *cutg1 = (TCutG*)cut_file1->Get("CUTG");
+    TCutG *Eu_Z_AoQ = (TCutG*)Eucut_file->Get("cut_Z_AoQ");
 
-    TFile *cut_file2 = new TFile("/u/jbormans/S100/analysis/aidatigerfish/Z63_X2.root");
-    TCutG *cutg2 = (TCutG*)cut_file2->Get("CUTG");
+    TCutG *Eu_Z_Z2 = (TCutG*)Eucut_file->Get("cut_Z_Z2");
 
-    TFile *cut_file3 = new TFile("/u/jbormans/S100/analysis/aidatigerfish/162Eu_AoQ.root");
+    TFile *Tbcut_file = new TFile("/u/jbormans/S100/analysis/aidatigerfish/X2_Z1_65.root");
 
-    TCutG *cut163Eu = (TCutG*)cut_file3->Get("CUTG");
+    TCutG *Tb_x2_Z = (TCutG*)Tbcut_file->Get("CUTG");
+
+    TFile *Tbcut_file1 = new TFile("/u/jbormans/S100/analysis/aidatigerfish/166Tb_Z_AoQ.root");
+
+    TCutG *Tb_Z_AoQ = (TCutG*)Tbcut_file1->Get("CUTG");
 
 
     // Open the output file
-    TFile* outputFile = new TFile(output, "RECREATE");
+    TFile* outputFile = new TFile("output.root", "RECREATE");
     if (!outputFile) {
         std::cerr << "Error: Could not create output file " << std::endl;
         return;
@@ -187,12 +192,16 @@ void aida_impdecay(const char* input, const char* output) {
     while (reader.Next()) {
         // Read the data from the old tree
 
+        // Get the spill flag
+        // bool spill_flag = *spill;
+
+
         // sizes
-        int germaniumhits = germanium_time.GetSize();
+        int germaniumhits = germanium_abs_ev_time.GetSize();
         int aidadecayhits = decay_time.GetSize();
         int aidaimphits = implant_time.GetSize();
         int frshits = frs_time.GetSize();
-        int bplasthits = bplast_time.GetSize();
+        int bplasthits = bplast_abs_ev_time.GetSize();
         
         
         int spflag = 0;
@@ -243,8 +252,8 @@ void aida_impdecay(const char* input, const char* output) {
 // Implants in coincidence with FRS
         if (frshits == 1 && aidaimphits == 1) {
             for (int i = 0; i < frshits; i++) {
-                if (cutg->IsInside(frs_z[i], frs_x2[i]) && cutg1->IsInside(frs_aoq[i], frs_z[i])) {
-                    bool filltree = false;
+                if (/*(Eu_Z_Z2->IsInside(frs_z2[i], frs_z[i]) && Eu_Z_AoQ->IsInside(frs_aoq[i], frs_z[i])) || */ (Tb_x2_Z->IsInside(frs_z[i], frs_x2[i]) && Tb_Z_AoQ->IsInside(frs_aoq[i], frs_z[i]))) {
+                    std::cout << "Implant in coincidence with FRS" << std::endl;
                     for (int j = 0; j < aidaimphits; j++) {
                         if (implant_dssd[j] == 1 && implant_stopped[j] == true) {
                             
@@ -271,51 +280,39 @@ void aida_impdecay(const char* input, const char* output) {
         }
 
 
-        
+    std::set<int> filled_germtree{};
+    std::set<int> filled_aidadecaytree{};
+
 // Decays in coincidence with Germanium
-        if (aidadecayhits < 3) {
+        if(aidadecayhits > 0 && germaniumhits > 0) {
             for (int i = 0; i < aidadecayhits; i++) {
-                
-                // DSSD 1 
-                if(decay_dssd[i] != 1) continue;
-                // Decay time calibrated events
-                if (TMath::Abs(decay_time_x[i] - decay_time_y[i]) > 1e3) continue;
-                // Removing broken strips
-                if (std::find(broken_xstrips.begin(), broken_xstrips.end(), decay_x[i]) != broken_xstrips.end() || std::find(broken_ystrips.begin(), broken_ystrips.end(), decay_y[i]) != broken_ystrips.end()) continue;
-                // FB low dE noise cut
-                if (TMath::Abs(decay_energy_x[i] - decay_energy_y[i]) > 200) continue;
-                // FB low E noise cut
-                if (decay_energy_x[i] < 200 && decay_energy_y[i] < 200) continue;
-                // Spill off decay
-//                if(*spill == true) continue;
-
-                aida_decay_data.time = decay_time[i];
-                aida_decay_data.x = decay_x[i];
-                aida_decay_data.y = decay_y[i];
-                // aida_decay_xy->Fill(decay_x[i], decay_y[i]);
-                aida_decay_data.sp = spflag;
-                aida_decay_data.bp = bpflag;
-
-                decay_tree->Fill();
-                
-                decflag = 1;
-              
-            }
-        }
-
-        if (decflag == 1){
-            if(germaniumhits > 0 && germaniumhits < 4){
-                for (int i = 0; i < germaniumhits; i++) {
-                    if (germanium_det[i] <= 12 && germanium_cry[i] >= 0 && germanium_cry[i] <= 2 && germanium_energy[i] >= 0) {
-                        germanium_data.time = germanium_time[i];
-                        double energy = germanium_energy[i];
-                        germanium_data.energy = energy;
-                        germanium_data.sp = spflag;
-                        germanium_data.bp = bpflag;
-                        // Fill the new tree with the data
-                        germanium_tree->Fill();
+                if (decay_dssd[i] == 1 && decay_cluster_size_x[i] == 1 && decay_cluster_size_y[i] == 1 && TMath::Abs(decay_energy_x[i] - decay_energy_y[i]) < 150 ) {
+                    for (int j = 0; j < germaniumhits; j++) {
+                        if (germanium_det[j] <= 12 && germanium_cry[j] <= 2 && germanium_energy[j] > 0) {
+                            if ((decay_time[i] - germanium_abs_ev_time[j]) > 14458 && (decay_time[i] - germanium_abs_ev_time[j]) < 16458) {
+                                if (filled_germtree.count(j) == 0) {
+                                    germanium_data.time = germanium_abs_ev_time[j];
+                                    double energy = germanium_energy[j];
+                                    germanium_data.energy = energy;
+                                    germanium_data.sp = spflag;
+                                    germanium_data.bp = bpflag;
+                                    germanium_tree->Fill();
+                                }
+                                filled_germtree.insert(j);
+                                if(germanium_energy[j] > 1035 && germanium_energy[j] < 1045){
+                                    aida_decay_data.time = decay_time[i];
+                                    aida_decay_data.x = decay_x[i];
+                                    aida_decay_data.y = decay_y[i];
+                                    aida_decay_data.sp = spflag;
+                                    aida_decay_data.bp = bpflag;
+                                    decay_tree->Fill();
+                                    
+                                }
+                                filled_aidadecaytree.insert(i);
+                            }
+                        }
                     }
-                }
+                }               
             }
         }
 
