@@ -85,11 +85,11 @@ TH1D* bplast_slow_onspill_wrgated_down;
 TH1D* bplast_fast_offspill_wrgated_down;
 TH1D* bplast_slow_offspill_wrgated_down;
 
-TH1D* bplast_fast_vs_slow_wrgated_onspill;
-TH1D* bplast_fast_vs_slow_wrgated_down_onspill;
+TH2D* bplast_fast_vs_slow_wrgated_onspill;
+TH2D* bplast_fast_vs_slow_wrgated_down_onspill;
 
-TH1D* bplast_fast_vs_slow_wrgated_offspill;
-TH1D* bplast_fast_vs_slow_wrgated_down_offspill;
+TH2D* bplast_fast_vs_slow_wrgated_offspill;
+TH2D* bplast_fast_vs_slow_wrgated_down_offspill;
 
 uint64_t wr_experiment_start = 1.7137464e+18;
 uint64_t wr_experiment_end = 1.7143668e+18;
@@ -175,11 +175,11 @@ void noclust::SlaveBegin(TTree * /*tree*/)
    bplast_fast_offspill_wrgated_down = new TH1D("bplast_fast_offspill_wrgated_down","bplast_fast_offspill_wrgated",3000,0,3000);
    bplast_slow_offspill_wrgated_down = new TH1D("bplast_slow_offspill_wrgated_down","bplast_slow_offspill_wrgated",3000,0,3000);
 
-   bplast_fast_vs_slow_wrgated_onspill = new TH1D("bplast_fast_vs_slow_wrgated_onspill","bplast_fast_vs_slow_wrgated_onspill",3000,0,3000);
-   bplast_fast_vs_slow_wrgated_down_onspill = new TH1D("bplast_fast_vs_slow_wrgated_down_onspill","bplast_fast_vs_slow_wrgated_down_onspill",3000,0,3000);
+   bplast_fast_vs_slow_wrgated_onspill = new TH2D("bplast_fast_vs_slow_wrgated_onspill","bplast_fast_vs_slow_wrgated_onspill",3000,0,3000,3000,0,3000);
+   bplast_fast_vs_slow_wrgated_down_onspill = new TH2D("bplast_fast_vs_slow_wrgated_down_onspill","bplast_fast_vs_slow_wrgated_down_onspill",3000,0,3000,3000,0,3000);
 
-   bplast_fast_vs_slow_wrgated_offspill = new TH1D("bplast_fast_vs_slow_wrgated_offspill","bplast_fast_vs_slow_wrgated_offspill",3000,0,3000);
-   bplast_fast_vs_slow_wrgated_down_offspill = new TH1D("bplast_fast_vs_slow_wrgated_down_offspill","bplast_fast_vs_slow_wrgated_down_offspill",3000,0,3000);
+   bplast_fast_vs_slow_wrgated_offspill = new TH2D("bplast_fast_vs_slow_wrgated_offspill","bplast_fast_vs_slow_wrgated_offspill",3000,0,3000,3000,0,3000);
+   bplast_fast_vs_slow_wrgated_down_offspill = new TH2D("bplast_fast_vs_slow_wrgated_down_offspill","bplast_fast_vs_slow_wrgated_down_offspill",3000,0,3000,3000,0,3000);
 
 
    fOutput->AddAll(gDirectory->GetList());
@@ -267,12 +267,12 @@ Bool_t noclust::Process(Long64_t entry)
       aida_implant_frontback->Fill(AidaImplantHits_EnergyX[i], AidaImplantHits_EnergyY[i]);
    }
 
-   if(aida_strip_x > 1 && aida_strip_y > 1) {
+   if(aida_strip_x => 1 && aida_strip_y => 1) {
 
       aida_decay_mult_x_y->Fill(aida_strip_x, aida_strip_y);
    }
 
-   if(aida_implant_x > 1 && aida_implant_y > 1) {
+   if(aida_implant_x => 1 && aida_implant_y => 1) {
       aida_implant_mult_x_y->Fill(aida_implant_x, aida_implant_y);
    }
 
@@ -334,7 +334,7 @@ Bool_t noclust::Process(Long64_t entry)
          int64_t decay_time = AidaDecayHits_Time[j];
          // if(AidaDecayHits_StripX.GetSize() > 4) continue;
          if(TMath::Abs(AidaDecayHits_EnergyX[j] - AidaDecayHits_EnergyY[j]) > 200) continue;
-         if(fill_aida.count(j) == 0) {
+         if(fill_aida.count(i) == 0) {
             bplast_aida_wr_dt->Fill(((int64_t)AidaDecayHits_Time[j])-((int64_t)bPlastTwinpeaksCalData_fabsolute_event_time[i]));
 
             // bPlast-AIDA time difference
@@ -343,7 +343,7 @@ Bool_t noclust::Process(Long64_t entry)
                   if(*EventHeader_fSpillFlag.Get()){
                      bplast_fast_onspill_wrgated->Fill(bPlastTwinpeaksCalData_ffast_ToT[i]);
                      bplast_slow_onspill_wrgated->Fill(bPlastTwinpeaksCalData_fslow_ToT[i]);
-                     bplast_fast_vs_slow_wrgated_down_onspill->Fill(bPlastTwinpeaksCalData_ffast_ToT[i], bPlastTwinpeaksCalData_fslow_ToT[i]);
+                     bplast_fast_vs_slow_wrgated_onspill->Fill(bPlastTwinpeaksCalData_ffast_ToT[i], bPlastTwinpeaksCalData_fslow_ToT[i]);
                   }
                   else{
                      bplast_fast_offspill_wrgated->Fill(bPlastTwinpeaksCalData_ffast_ToT[i]);
@@ -364,7 +364,7 @@ Bool_t noclust::Process(Long64_t entry)
                   }
                }
             }
-            fill_aida.insert(j);
+            fill_aida.insert(i);
          }
       }
    }

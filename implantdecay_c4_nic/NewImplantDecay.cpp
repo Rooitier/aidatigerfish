@@ -15,7 +15,7 @@
 #include <memory>
 #include <thread>
 
-#include <FrsHitData.h>
+#include "FrsHitData.h"
 #include "tqdm.h"
 
 #define DEBUG_FILE 0

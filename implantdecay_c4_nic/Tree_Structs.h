@@ -16,9 +16,9 @@
 #pragma link C++ class PlasticDecayEntry+;
 #endif
 
-#include <AidaData.h>
-#include <AidaHitData.h>
-#include <AidaCalData.h>
+#include "AidaData.h"
+#include "AidaHitData.h"
+#include "AidaCalData.h"
 
 // FRS struct
 struct FrsData : public TObject

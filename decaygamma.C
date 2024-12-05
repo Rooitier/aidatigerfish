@@ -109,11 +109,15 @@ void decaygamma(){
     TH2F* aida_posdiff_time = new TH2F("aida_posdiff_time", "AIDA Position Difference vs Time", 1e3, 0, 1e3, 1e3, -1e4, 1e5);
     TH1F* aida_averageimplant_150s = new TH1F("aida_averageimplant_150s", "AIDA Average Implant 150s", number_of_slices, 0, duration_in_seconds);
     TH1F* aida_averagegatedimplant_150s = new TH1F("aida_averagegatedimplant_150s", "AIDA Average Gated Implant 150s", number_of_slices, 0, duration_in_seconds);
-    TH1F* aida_implant_veto_dt = new TH1F("aida_implant_veto_dt", "AIDA Implant Veto Time Difference", 1e4, 0, 3e10);
+    TH1F* aida_implant_veto_dt = new TH1F("aida_implant_veto_dt", "AIDA Implant Veto Time Difference", 1e4, 0, 3e9);
+    TH2F* aida_implant_dt_vs_pos_x = new TH2F("aida_implant_dt_vs_pos_x", "AIDA Implant-Decay Time Difference vs Position Difference X", 1e4, 0, 3e9, 384, 0, 384);
+    TH2F* aida_implant_dt_vs_pos_y = new TH2F("aida_implant_dt_vs_pos_y", "AIDA Implant-Decay Time Difference vs Position Difference Y", 1e4, 0, 3e9, 384, 0, 384);
+    TH2F* aida_implant_dt_vs_pos_diff = new TH2F("aida_implant_dt_vs_pos_diff", "AIDA Implant-Decay Time Difference vs Position Difference X-Y", 1e4, 0, 3e7, 384, 0, 384);
+
 
     // Make new maps for processing the data
 
-    enum EventType { IMPLANT, DECAY };
+    enum EventType { GATEDIMPLANT, IMPLANT, DECAY };
 
     std::map<int64_t, std::tuple<double, double, int, int>> implant_map;
     std::map<int64_t, std::tuple<double, double, int, int>> gatedimplant_map;
@@ -144,10 +148,15 @@ void decaygamma(){
 
     // Read gated implant events
     while (gatedimplant_reader.Next()) {
-        event_map.emplace(*gatedimplant_time, std::make_tuple(*gatedimplant_x, *gatedimplant_y, *gatedimplant_spill, *gatedimplant_bplast, IMPLANT));
+        event_map.emplace(*gatedimplant_time, std::make_tuple(*gatedimplant_x, *gatedimplant_y, *gatedimplant_spill, *gatedimplant_bplast, GATEDIMPLANT));
     }
     std::cout << "Finished filling the gated implant map" << std::endl;
 
+    // Read implant events
+    while (implant_reader.Next()) {
+        event_map.emplace(*implant_time, std::make_tuple(*implant_x, *implant_y, *implant_spill, *implant_bplast, IMPLANT));
+    }
+    
     // Read decay events
     while (decay_reader.Next()) {
         event_map.emplace(*decay_time, std::make_tuple(*decay_x, *decay_y, *decay_spill, *decay_bplast, DECAY));
@@ -160,6 +169,8 @@ void decaygamma(){
     auto germanit = germanium_map.begin();
 
     int64_t last_implant_time;
+    double implant_pos_x;
+    double implant_pos_y;
 
     // Loop over the event_map and produce the time stamps of implants and decays
     for (auto it = event_map.begin(); it != event_map.end(); ++it) {
@@ -167,9 +178,21 @@ void decaygamma(){
 
         if (type == IMPLANT) {
             last_implant_time = it->first;
+            implant_pos_x = x;
+            implant_pos_y = y;
         } else if (type == DECAY) {
             int64_t time_diff = it->first - last_implant_time;
             aida_implant_veto_dt->Fill(time_diff);
+            double decay_pos_x = x;
+            double decay_pos_y = y;
+            // Calculate the position difference
+            double pos_diff_x = std::abs(implant_pos_x - decay_pos_x);
+            double pos_diff_y = std::abs(implant_pos_y - decay_pos_y);
+            double pos_diff = std::sqrt(std::pow(pos_diff_x, 2) + std::pow(pos_diff_y, 2));
+            aida_implant_dt_vs_pos_x->Fill(time_diff, pos_diff_x);
+            aida_implant_dt_vs_pos_y->Fill(time_diff, pos_diff_y);
+            aida_implant_dt_vs_pos_diff->Fill(time_diff, pos_diff);
+
         }
     }
 
@@ -374,6 +397,9 @@ void decaygamma(){
     aida_averageimplant_150s->Write();
     aida_averagegatedimplant_150s->Write();
     aida_implant_veto_dt->Write();
+    aida_implant_dt_vs_pos_x->Write();
+    aida_implant_dt_vs_pos_y->Write();
+    aida_implant_dt_vs_pos_diff->Write();
 
     std::cout << "Finished writing the histograms" << std::endl;
 
