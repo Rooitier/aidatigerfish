@@ -91,6 +91,18 @@ TH2D* bplast_fast_vs_slow_wrgated_down_onspill;
 TH2D* bplast_fast_vs_slow_wrgated_offspill;
 TH2D* bplast_fast_vs_slow_wrgated_down_offspill;
 
+TH1D* bplast_aidaimplants_wr_dt;
+
+TH2D* bplast_fast_vs_wrt_implantgated;
+
+TH2D* bplast_fast_vs_wrt_decaygated;
+
+TH1D* bplast_frs_wr_dt;
+
+TH2D* bplast_fast_vs_slow_frs_wrgated;
+
+
+
 uint64_t wr_experiment_start = 1.7137464e+18;
 uint64_t wr_experiment_end = 1.7143668e+18;
 int64_t duration_in_seconds = (wr_experiment_end - wr_experiment_start)/1e9;
@@ -180,6 +192,16 @@ void noclust::SlaveBegin(TTree * /*tree*/)
 
    bplast_fast_vs_slow_wrgated_offspill = new TH2D("bplast_fast_vs_slow_wrgated_offspill","bplast_fast_vs_slow_wrgated_offspill",3000,0,3000,3000,0,3000);
    bplast_fast_vs_slow_wrgated_down_offspill = new TH2D("bplast_fast_vs_slow_wrgated_down_offspill","bplast_fast_vs_slow_wrgated_down_offspill",3000,0,3000,3000,0,3000);
+   
+   bplast_aidaimplants_wr_dt = new TH1D("bplast_aidaimplants_wr_dt","bplast_aidaimplants_wr_dt",1000,-8e4,8e4);
+
+   // bplast_fast_vs_wrt_implantgated = new TH2D("bplast_fast_vs_wrt_implantgated","bplast_fast_vs_wrt_implantgated",3000,0,3000,number_of_slices,0,duration_in_seconds);
+
+   // bplast_fast_vs_wrt_decaygated = new TH2D("bplast_fast_vs_wrt_decaygated","bplast_fast_vs_wrt_decaygated",3000,0,3000,number_of_slices,0,duration_in_seconds);
+
+   bplast_frs_wr_dt = new TH1D("bplast_frs_wr_dt","bplast_frs_wr_dt",1000,-10e3,10e3);
+
+   bplast_fast_vs_slow_frs_wrgated = new TH2D("bplast_fast_vs_slow_frs_wrgated","bplast_fast_vs_slow_frs_wrgated",3000,0,3000,3000,0,3000);
 
 
    fOutput->AddAll(gDirectory->GetList());
@@ -209,6 +231,7 @@ Bool_t noclust::Process(Long64_t entry)
 
    int decayhits = AidaDecayHits_Time.GetSize();
    int implanthits = AidaImplantHits_Time.GetSize();
+   int frshits = FrsHitData_fwr_t.GetSize();
    int decayhitsx = AidaDecayHits_StripX.GetSize();
    int decayhitsy = AidaDecayHits_StripY.GetSize();
    int implanthitsx = AidaImplantHits_StripX.GetSize();
@@ -267,18 +290,20 @@ Bool_t noclust::Process(Long64_t entry)
       aida_implant_frontback->Fill(AidaImplantHits_EnergyX[i], AidaImplantHits_EnergyY[i]);
    }
 
-   if(aida_strip_x => 1 && aida_strip_y => 1) {
+   if(aida_strip_x >= 1 && aida_strip_y >= 1) {
 
       aida_decay_mult_x_y->Fill(aida_strip_x, aida_strip_y);
    }
 
-   if(aida_implant_x => 1 && aida_implant_y => 1) {
+   if(aida_implant_x >= 1 && aida_implant_y >= 1) {
       aida_implant_mult_x_y->Fill(aida_implant_x, aida_implant_y);
    }
 
    // Loop over the bPlast events
 
    std::set<int> fill_aida{};
+   std::set<int> fill_aidaimp{};
+   std::set<int> fill_frs{};
 
    for (int i = 0; i < bplasthits; i++) {
       int64_t time = bPlastTwinpeaksCalData_fabsolute_event_time[i];
@@ -365,6 +390,34 @@ Bool_t noclust::Process(Long64_t entry)
                }
             }
             fill_aida.insert(i);
+         }
+      }
+
+
+      // Loop over AIDA implant events
+      if(implanthits > 0){
+         for (int j = 0; j < implanthits; j++) {
+            if(AidaImplantHits_DSSD[j] == 2) continue;
+            int64_t implant_time = AidaImplantHits_Time[j];
+            if(bPlastTwinpeaksCalData_fdetector_id[i] == 44 && fill_aidaimp.count(j) == 0) {
+               bplast_aidaimplants_wr_dt->Fill(((int64_t)AidaImplantHits_Time[j])-((int64_t)bPlastTwinpeaksCalData_fabsolute_event_time[i]));
+               fill_aidaimp.insert(j);
+            }
+         }
+      }
+
+
+
+
+      // // Loop over FRS events
+      if(frshits > 0){
+         for (int j = 0; j < frshits; j++) {
+            if(bPlastTwinpeaksCalData_fdetector_id[i] == 44) {
+               if(fill_frs.count(j) == 0) {
+                  bplast_frs_wr_dt->Fill(((int64_t)FrsHitData_fwr_t[j])-((int64_t)bPlastTwinpeaksCalData_fabsolute_event_time[i]));
+                  fill_frs.insert(j);
+               }
+            }
          }
       }
    }

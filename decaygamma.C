@@ -1,4 +1,8 @@
 #include <iostream>
+#include <map>
+#include <unordered_map>
+#include <tuple>
+#include <utility>
 #include <TFile.h>
 #include <TTree.h>
 #include <TTreeReader.h>
@@ -15,6 +19,14 @@ bool is_overlapping(double imp_x, double imp_y, double imp_dx, double imp_dy,
             imp_x + (imp_dx / 2.0) >= (beta_x - ((beta_dx / 2.0) + B)) &&
             imp_x - (imp_dx / 2.0) <= (beta_x + ((beta_dx / 2.0) + B)));
 }
+
+// Custom hash function for std::pair<int, int>
+struct pair_hash {
+    template <class T1, class T2>
+    std::size_t operator() (const std::pair<T1, T2>& pair) const {
+        return std::hash<T1>()(pair.first) ^ std::hash<T2>()(pair.second);
+    }
+};
 
 void decaygamma(){
 
@@ -112,7 +124,7 @@ void decaygamma(){
     TH1F* aida_implant_veto_dt = new TH1F("aida_implant_veto_dt", "AIDA Implant Veto Time Difference", 1e4, 0, 3e9);
     TH2F* aida_implant_dt_vs_pos_x = new TH2F("aida_implant_dt_vs_pos_x", "AIDA Implant-Decay Time Difference vs Position Difference X", 1e4, 0, 3e9, 384, 0, 384);
     TH2F* aida_implant_dt_vs_pos_y = new TH2F("aida_implant_dt_vs_pos_y", "AIDA Implant-Decay Time Difference vs Position Difference Y", 1e4, 0, 3e9, 384, 0, 384);
-    TH2F* aida_implant_dt_vs_pos_diff = new TH2F("aida_implant_dt_vs_pos_diff", "AIDA Implant-Decay Time Difference vs Position Difference X-Y", 1e4, 0, 3e7, 384, 0, 384);
+    TH2F* aida_implant_dt_vs_pos_diff = new TH2F("aida_implant_dt_vs_pos_diff", "AIDA Implant-Decay Time Difference vs Position Difference X-Y", 1e4, 0, 3e9, 384, 0, 384);
 
 
     // Make new maps for processing the data
@@ -125,6 +137,9 @@ void decaygamma(){
     std::map<int64_t, std::tuple<double,int, int>> germanium_map;
 
     std::multimap<int64_t, std::tuple<double, double, int, int, EventType>> event_map;
+    std::multimap<int64_t, std::tuple<double, double, int, int, EventType>> all_implants;
+    std::multimap<int64_t, std::tuple<double, double, int, int, EventType>> good_decays;
+    std::multimap<int64_t, std::tuple<double, double, int, int, EventType>> good_implants;
 
     // Loop over the implant and decay trees and fill the maps
     // std::cout << "Filling the maps" << std::endl;
@@ -148,15 +163,15 @@ void decaygamma(){
 
     // Read gated implant events
     while (gatedimplant_reader.Next()) {
-        event_map.emplace(*gatedimplant_time, std::make_tuple(*gatedimplant_x, *gatedimplant_y, *gatedimplant_spill, *gatedimplant_bplast, GATEDIMPLANT));
+        all_implants.emplace(*gatedimplant_time, std::make_tuple(*gatedimplant_x, *gatedimplant_y, *gatedimplant_spill, *gatedimplant_bplast, GATEDIMPLANT));
     }
     std::cout << "Finished filling the gated implant map" << std::endl;
 
     // Read implant events
     while (implant_reader.Next()) {
-        event_map.emplace(*implant_time, std::make_tuple(*implant_x, *implant_y, *implant_spill, *implant_bplast, IMPLANT));
+        all_implants.emplace(*implant_time, std::make_tuple(*implant_x, *implant_y, *implant_spill, *implant_bplast, IMPLANT));
     }
-    
+
     // Read decay events
     while (decay_reader.Next()) {
         event_map.emplace(*decay_time, std::make_tuple(*decay_x, *decay_y, *decay_spill, *decay_bplast, DECAY));
@@ -168,33 +183,94 @@ void decaygamma(){
     auto decayit = decay_map.begin();
     auto germanit = germanium_map.begin();
 
+    int64_t last_gatedimplant_time;
     int64_t last_implant_time;
+    int64_t last_decay_time;
+    double gatedimplant_pos_x;
+    double gatedimplant_pos_y;
     double implant_pos_x;
     double implant_pos_y;
+    bool shitplant = false;
+    bool broken_decay = false;
+    int vetoed_implants = 0;
 
-    // Loop over the event_map and produce the time stamps of implants and decays
-    for (auto it = event_map.begin(); it != event_map.end(); ++it) {
+    // Print some information
+    std::cout << "Number of events in the event map: " << all_implants.size() << std::endl;
+    std::cout << "Number of events in the implant map: " << good_implants.size() << std::endl;
+
+    std::unordered_map<std::pair<int, int>, int64_t, pair_hash> gated_implant_positions;
+
+    // Loop over the event map and preprocess it, remove gated implants that are in the same position as an implant
+    for (auto it = all_implants.begin(); it != all_implants.end(); ++it) {
         auto [x, y, spill, bplast, type] = it->second;
 
+        // Show the event progress
+        if (it->first % 1000 == 0) {
+            std::cout << "\rProcessing event " << it->first << " of " << all_implants.size() << std::flush;
+        }
+
+        // Store gated implants in the unordered_map
+        if (type == GATEDIMPLANT) {
+            last_gatedimplant_time = it->first;
+            gated_implant_positions[{x, y}] = it->first;
+            // Add to the good implants
+            // good_implants.emplace(it->first, it->second);
+        }
+
+        // Veto on implants in the same position
         if (type == IMPLANT) {
             last_implant_time = it->first;
             implant_pos_x = x;
             implant_pos_y = y;
-        } else if (type == DECAY) {
-            int64_t time_diff = it->first - last_implant_time;
-            aida_implant_veto_dt->Fill(time_diff);
-            double decay_pos_x = x;
-            double decay_pos_y = y;
-            // Calculate the position difference
-            double pos_diff_x = std::abs(implant_pos_x - decay_pos_x);
-            double pos_diff_y = std::abs(implant_pos_y - decay_pos_y);
-            double pos_diff = std::sqrt(std::pow(pos_diff_x, 2) + std::pow(pos_diff_y, 2));
-            aida_implant_dt_vs_pos_x->Fill(time_diff, pos_diff_x);
-            aida_implant_dt_vs_pos_y->Fill(time_diff, pos_diff_y);
-            aida_implant_dt_vs_pos_diff->Fill(time_diff, pos_diff);
+            if (last_implant_time == last_gatedimplant_time) {
+                continue;
+            }
 
+            auto pos = std::make_pair(x, y);
+            if (gated_implant_positions.find(pos) != gated_implant_positions.end()) {
+                int64_t gated_time = gated_implant_positions[pos];
+                int64_t time_diff = it->first - gated_time;
+                if (time_diff < 150 * 1e9) {
+                    // std::cout << "We found a vetoed implant event" << std::endl;
+                    vetoed_implants++;
+                    gated_implant_positions.erase(pos);
+                    continue;
+                }
+            }
         }
     }
+
+    // Add the remaining gated implants to the good implants
+    for (const auto& [pos, time] : gated_implant_positions) {
+        good_implants.emplace(time, all_implants.find(time)->second);
+    }
+
+    // Print some information
+    std::cout << "\nNumber of vetoed implant events: " << vetoed_implants << std::endl;
+    std::cout << "Number of good implants: " << good_implants.size() << std::endl;
+
+
+        // if (type == DECAY && gatedimplant_pos_x == x && gatedimplant_pos_y == y){
+        //     if(broken_decay){
+        //         continue;
+        //     }
+        //     // if(shitplant) continue;
+        //     // if ((implant_pos_x == x && implant_pos_y == y) || shitplant) continue;
+        //     // if (spill == 1) continue;
+        //     last_decay_time = it->first;
+        //     int64_t time_diff = it->first - last_gatedimplant_time;
+        //     std::cout << "We matched an event with time difference: " << time_diff << std::endl;
+        //     aida_implant_veto_dt->Fill(time_diff);
+        //     double decay_pos_x = x;
+        //     double decay_pos_y = y;
+        //     // Calculate the position difference
+        //     double pos_diff_x = std::abs(gatedimplant_pos_x - decay_pos_x);
+        //     double pos_diff_y = std::abs(gatedimplant_pos_y - decay_pos_y);
+        //     double pos_diff = std::sqrt(std::pow(pos_diff_x, 2) + std::pow(pos_diff_y, 2));
+        //     aida_implant_dt_vs_pos_x->Fill(time_diff, pos_diff_x);
+        //     aida_implant_dt_vs_pos_y->Fill(time_diff, pos_diff_y);
+        //     aida_implant_dt_vs_pos_diff->Fill(time_diff, pos_diff);
+        // }
 
     // const long long time_window = 50 * 1e9; // 50 seconds in nanoseconds
 
